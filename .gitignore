@@ -1,0 +1,6 @@
+venv/
+build/
+dist/
+*.AppImage
+AppDir/usr/
+.DS_Store

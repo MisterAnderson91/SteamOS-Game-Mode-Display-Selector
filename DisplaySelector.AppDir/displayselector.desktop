@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=SteamOS Display Selector
+Exec=DisplaySelector
+Icon=displayselector
+Categories=Utility;
