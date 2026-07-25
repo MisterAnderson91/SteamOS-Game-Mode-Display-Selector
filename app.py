@@ -19,7 +19,14 @@ ORIGINAL_SCRIPT="/usr/lib/steamos/gamescope-session"
 # If the output isn't found then pass the original script through unaltered
 if ls /sys/class/drm/card*-"$GAME_MODE_DISPLAY" >/dev/null 2>&1; then
     # The output exists on the GPU. Dynamically inject it into the gamescope command.
-    source <(sed "s/-O '\*',eDP-1/-O ${{GAME_MODE_DISPLAY}},'\*',eDP-1/" "$ORIGINAL_SCRIPT")
+    
+    if [ "$GAME_MODE_DISPLAY" = "eDP-1" ]; then
+        # Move eDP-1 to the front and remove the duplicate from the end
+        source <(sed "s/-O '\*',eDP-1/-O ${{GAME_MODE_DISPLAY}},'\*'/" "$ORIGINAL_SCRIPT")
+    else
+        # Add GAME_MODE_DISPLAY to the front and keep eDP-1 at the end
+        source <(sed "s/-O '\*',eDP-1/-O ${{GAME_MODE_DISPLAY}},'\*',eDP-1/" "$ORIGINAL_SCRIPT")
+    fi
 else
     # The output does not exist. Fall back to the unmodified original script.
     source "$ORIGINAL_SCRIPT"
