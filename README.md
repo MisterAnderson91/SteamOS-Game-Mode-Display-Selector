@@ -9,18 +9,18 @@ This app safely modifies this behavior by:
 1. Creating a custom script at `~/.local/bin/gamescope-session` that dynamically injects your preferred display output into the gamescope command.
 2. Creating a systemd override at `~/.config/systemd/user/gamescope-session.service.d/override.conf` to route the session through the new custom script.
 
-**Failsafe:** The systemd override is designed to safely fall back to the default SteamOS script if the custom script goes missing, preventing black screens or broken sessions.
+Only one priority display can be added through the app but you can also open the files manually to edit them and add additional displays in the order you want them. Edit gamescope-session and list them in the GAME_MODE_DISPLAY, comma-separated (no spaces).
+
+**Failsafe:** The systemd override is designed to safely fall back to the default SteamOS script if the custom script goes missing, preventing black screens or broken sessions. If SteamOS is updated with any major changes that break the custom script's injection, it will also fallback to default behaviour. 
 
 ## Usage
 
 ### Using the AppImage (Recommended)
-1. Go to the **[Releases](../../releases)** page and download the latest `.AppImage` file.
-2. Make the file executable. You can do this by right-clicking the file in Desktop mode, going to Properties > Permissions, and checking "Is executable", or by running the following in your terminal:
-   `chmod +x SteamOS_Display_Selector-x86_64.AppImage`
-3. Double-click the file to run the GUI.
+1. In Desktop Mode, go to the **[Releases](../../releases)** page and download the latest `.AppImage` file.
+2. Double-click the file to run the app (if you get a prompt, launch the file as executable). It will open with a window and you can set the options from there.
 
 ### Removing the Scripts
-You can completely revert to default SteamOS behavior by clicking "Remove custom scripts" within the GUI, or by manually deleting the generated files from your `~/.local/bin/` and `~/.config/systemd/user/` directories.
+You can completely revert to default SteamOS behavior by clicking "Remove custom scripts" within the GUI, or by manually deleting the generated files `~/.local/bin/gamescope-session` and `~/.config/systemd/user/gamescope-session.d/override.conf` (if the folders have no other files, those can also be safely deleted).
 
 ## Building from Source
 
