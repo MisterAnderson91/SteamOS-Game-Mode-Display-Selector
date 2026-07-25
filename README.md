@@ -18,6 +18,7 @@ Only one priority display can be added through the app but you can also open the
 ### Using the AppImage (Recommended)
 1. In Desktop Mode, go to the **[Releases](../../releases)** page and download the latest `.AppImage` file.
 2. Double-click the file to run the app (if you get a prompt, launch the file as executable). It will open with a window and you can set the options from there.
+3. The change will take effect when you leave Desktop Mode. (Nested Desktop users will need to reboot)
 
 ### Removing the Scripts
 You can completely revert to default SteamOS behavior by clicking "Remove custom scripts" within the GUI, or by manually deleting the generated files `~/.local/bin/gamescope-session` and `~/.config/systemd/user/gamescope-session.d/override.conf` (if the folders have no other files, those can also be safely deleted).
