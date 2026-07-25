@@ -1,7 +1,6 @@
 name: Build AppImage
 
-# This tells GitHub to run the script every time you push to the 'main' branch,
-# or when you manually trigger it from the Actions tab.
+# Trigger on push to main/master branches or manually via workflow_dispatch
 on:
   push:
     branches: [ "main", "master" ]
@@ -9,12 +8,19 @@ on:
 
 jobs:
   build:
-    # Using Ubuntu 22.04 ensures the built AppImage is compatible with older and newer glibc versions (like SteamOS)
+    # Using Ubuntu 22.04 ensures compatibility with older glibc versions (like SteamOS)
     runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+
+    - name: Set CalVer Version
+      run: |
+        # Generate date in YYYY.MM.DD format and save to GitHub environment
+        CALVER=$(date +'%Y.%m.%d')
+        echo "VERSION=$CALVER" >> $GITHUB_ENV
+        echo "Building version: $CALVER"
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -35,29 +41,31 @@ jobs:
 
     - name: Build executable with PyInstaller
       run: |
-        # This uses your existing spec file to build the binary
         pyinstaller DisplaySelector.spec
 
     - name: Prepare AppDir structure
       run: |
-        # Ensure the destination directory exists and copy the compiled binary
+        # Ensure destination exists and copy the compiled binary
         mkdir -p DisplaySelector.AppDir/usr/bin
         cp -r dist/DisplaySelector/* DisplaySelector.AppDir/usr/bin/
         
-        # Ensure the AppRun file is executable
+        # Ensure AppRun is executable
         chmod +x DisplaySelector.AppDir/AppRun
+
+        # Inject the dynamic version into the .desktop file
+        sed -i "s/Version=.*/Version=${{ env.VERSION }}/g" DisplaySelector.AppDir/*.desktop
 
     - name: Download and execute appimagetool
       run: |
-        # Download the official AppImageTool directly from its releases
+        # Download official appimagetool
         wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
         chmod +x appimagetool-x86_64.AppImage
         
-        # Build the AppImage. We use --appimage-extract-and-run to bypass FUSE permission issues on GitHub runners
-        ./appimagetool-x86_64.AppImage --appimage-extract-and-run DisplaySelector.AppDir
+        # Build the AppImage and set the output filename using the environment variable
+        VERSION=${{ env.VERSION }} ./appimagetool-x86_64.AppImage --appimage-extract-and-run DisplaySelector.AppDir SteamOS-Game-Mode-Display-Selector-${{ env.VERSION }}-x86_64.AppImage
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: SteamOS-Display-Selector-AppImage
-        path: "*.AppImage"
+        name: SteamOS-Display-Selector-${{ env.VERSION }}
+        path: "SteamOS-Game-Mode-Display-Selector-${{ env.VERSION }}-x86_64.AppImage"
