@@ -1,0 +1,63 @@
+name: Build AppImage
+
+# This tells GitHub to run the script every time you push to the 'main' branch,
+# or when you manually trigger it from the Actions tab.
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    # Using Ubuntu 22.04 ensures the built AppImage is compatible with older and newer glibc versions (like SteamOS)
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        # file and fuse are required for appimagetool to function on Linux runners
+        sudo apt-get install -y file fuse
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build executable with PyInstaller
+      run: |
+        # This uses your existing spec file to build the binary
+        pyinstaller DisplaySelector.spec
+
+    - name: Prepare AppDir structure
+      run: |
+        # Ensure the destination directory exists and copy the compiled binary
+        mkdir -p DisplaySelector.AppDir/usr/bin
+        cp -r dist/DisplaySelector/* DisplaySelector.AppDir/usr/bin/
+        
+        # Ensure the AppRun file is executable
+        chmod +x DisplaySelector.AppDir/AppRun
+
+    - name: Download and execute appimagetool
+      run: |
+        # Download the official AppImageTool directly from its releases
+        wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+        chmod +x appimagetool-x86_64.AppImage
+        
+        # Build the AppImage. We use --appimage-extract-and-run to bypass FUSE permission issues on GitHub runners
+        ./appimagetool-x86_64.AppImage --appimage-extract-and-run DisplaySelector.AppDir
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: SteamOS-Display-Selector-AppImage
+        path: "*.AppImage"
