@@ -6,6 +6,10 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+# Grants the workflow permission to create a Release
+permissions:
+  contents: write
+
 jobs:
   build:
     # Using Ubuntu 22.04 ensures compatibility with older glibc versions (like SteamOS)
@@ -69,3 +73,12 @@ jobs:
       with:
         name: SteamOS-Display-Selector-${{ env.VERSION }}
         path: "SteamOS-Game-Mode-Display-Selector-${{ env.VERSION }}-x86_64.AppImage"
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ env.VERSION }}
+        name: SteamOS Game Mode Display Selector ${{ env.VERSION }}
+        files: SteamOS-Game-Mode-Display-Selector-${{ env.VERSION }}-x86_64.AppImage
+        draft: false
+        prerelease: false
