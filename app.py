@@ -1,8 +1,10 @@
 import os
 import stat
 import re
+import json
+import urllib.request
 import subprocess
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QComboBox, QPushButton, QMessageBox)
 
@@ -39,29 +41,53 @@ ExecStart=
 ExecStart=/bin/bash -c 'if [ -x {script_path} ]; then exec {script_path}; else exec /usr/lib/steamos/gamescope-session; fi'
 """
 
+class UpdateCheckerThread(QThread):
+    update_checked = pyqtSignal(str, str) # Emits (latest_version, release_url)
+
+    def __init__(self, repo_owner, repo_name, current_version):
+        super().__init__()
+        self.repo_owner = repo_owner
+        self.repo_name = repo_name
+        self.current_version = current_version
+
+    def run(self):
+        url = f"https://api.github.com/repos/{self.repo_owner}/{self.repo_name}/releases/latest"
+        try:
+            req = urllib.request.Request(
+                url, 
+                headers={"User-Agent": "SteamOS-Display-Selector-Updater"}
+            )
+            with urllib.request.urlopen(req, timeout=4) as response:
+                data = json.loads(response.read().decode())
+                latest_tag = data.get("tag_name", "").strip()
+                html_url = data.get("html_url", "").strip()
+                if latest_tag and latest_tag != self.current_version:
+                    self.update_checked.emit(latest_tag, html_url)
+        except Exception:
+            # Silently fail on network/offline errors to prevent freezing or crashes
+            pass
+
 class DisplaySelectorApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("SteamOS Game Mode Display Selector")
-        # Accommodate the new vertical layout
         self.setMinimumSize(450, 420) 
+        self.current_app_version = "2026.07.27" # Track current build baseline
 
         # Main Vertical Layout
         layout = QVBoxLayout()
 
         # --- Sub-layout to reduce space between Label and Dropdown ---
         selection_layout = QVBoxLayout()
-        selection_layout.setSpacing(5) # Tighter spacing for just these two items
+        selection_layout.setSpacing(5)
 
         # Label
         self.label = QLabel("Select preferred game mode display:")
         selection_layout.addWidget(self.label, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        # Dropdown Box (Styled to look and behave like a native button)
+        # Dropdown Box
         self.combo_box = QComboBox()
         self.combo_box.setFixedWidth(250)
-        
-        # Style the combobox to look like a button and allow normal click toggling
         self.combo_box.setStyleSheet("""
             QComboBox {
                 border: 1px solid #76797C;
@@ -94,23 +120,19 @@ class DisplaySelectorApp(QWidget):
                 border: 1px solid #76797C;
             }
         """)
-        
         selection_layout.addWidget(self.combo_box, alignment=Qt.AlignmentFlag.AlignHCenter)
-
-        # Add the selection group to the main layout
         layout.addLayout(selection_layout)
 
-        layout.addSpacing(15) # Gap before the Install button
+        layout.addSpacing(15)
 
         # Apply Button
         self.apply_button = QPushButton("Install game mode display selector scripts")
         self.apply_button.clicked.connect(self.install_script)
         layout.addWidget(self.apply_button)
 
-        # -- FIRST GAP --
         layout.addSpacing(20)
 
-        # Three grouped buttons
+        # Action Buttons
         self.open_script_button = QPushButton("Open gamescope-session script")
         self.open_script_button.clicked.connect(self.open_script)
         layout.addWidget(self.open_script_button)
@@ -123,7 +145,6 @@ class DisplaySelectorApp(QWidget):
         self.remove_button.clicked.connect(self.remove_scripts)
         layout.addWidget(self.remove_button)
 
-        # -- SECOND GAP --
         layout.addSpacing(20)
 
         # Exit Button
@@ -131,23 +152,52 @@ class DisplaySelectorApp(QWidget):
         self.exit_button.clicked.connect(QApplication.quit)
         layout.addWidget(self.exit_button)
         
-        # About Layout (Bottom Right)
+        # Bottom Layout (Update notification on left, About button on right)
         about_layout = QHBoxLayout()
-        about_layout.addStretch() # Pushes the button to the right
+        
+        # Update Notification Label (Hidden by default)
+        self.update_label = QLabel()
+        self.update_label.setStyleSheet("color: #4da6ff; font-weight: bold;")
+        self.update_label.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.update_label.hide()
+        about_layout.addWidget(self.update_label)
+        
+        about_layout.addStretch() # Pushes About button to the right
         
         self.about_button = QPushButton("About")
         self.about_button.setFlat(True) 
-        # Apply CSS to make the text lower contrast (grey)
         self.about_button.setStyleSheet("color: #888888;") 
         self.about_button.clicked.connect(self.show_about)
-        
         about_layout.addWidget(self.about_button)
+        
         layout.addLayout(about_layout)
-
         self.setLayout(layout)
 
-        # Populate displays AFTER all buttons are created so we can disable them if needed
         self.populate_displays()
+
+        # Trigger background update check safely after UI loads
+        self.start_update_check("MisterAnderson91", "SteamOS-Game-Mode-Display-Selector")
+
+    def start_update_check(self, owner, repo):
+        self.update_thread = UpdateCheckerThread(owner, repo, self.current_app_version)
+        self.update_thread.update_checked.connect(self.display_update_notification)
+        self.update_thread.start()
+
+    def display_update_notification(self, latest_version, url):
+        self.release_url = url
+        self.update_label.setText(f"🚀 Update v{latest_version} available!")
+        # Make the label behave like a clickable link
+        self.update_label.mousePressEvent = lambda event: self.open_url(self.release_url)
+        self.update_label.show()
+
+    def open_url(self, url):
+        env = os.environ.copy()
+        for k in ["LD_LIBRARY_PATH", "APPDIR", "APPIMAGE"]:
+            env.pop(k, None)
+        try:
+            subprocess.Popen(["xdg-open", url], env=env)
+        except Exception:
+            pass
 
     def get_script_path(self):
         return os.path.expanduser("~/.local/bin/gamescope-session")
@@ -170,7 +220,6 @@ class DisplaySelectorApp(QWidget):
         if not available_displays:
             self.combo_box.addItem("No available display outputs detected.")
             self.combo_box.setEnabled(False)
-            
             self.apply_button.setEnabled(False)
             self.open_script_button.setEnabled(False)
             self.open_conf_button.setEnabled(False)
@@ -178,7 +227,6 @@ class DisplaySelectorApp(QWidget):
         else:
             self.combo_box.addItems(sorted(list(available_displays)))
 
-        # Center-align the text for each dropdown option and the currently selected item
         for i in range(self.combo_box.count()):
             self.combo_box.setItemData(i, Qt.AlignmentFlag.AlignCenter, Qt.ItemDataRole.TextAlignmentRole)
 
@@ -211,7 +259,6 @@ class DisplaySelectorApp(QWidget):
         conf_dir = os.path.dirname(conf_path)
 
         try:
-            # Setup gamescope-session script
             os.makedirs(script_dir, exist_ok=True)
             with open(script_path, "w") as f:
                 f.write(script_content)
@@ -219,7 +266,6 @@ class DisplaySelectorApp(QWidget):
             st = os.stat(script_path)
             os.chmod(script_path, st.st_mode | stat.S_IEXEC)
 
-            # Setup systemd override.conf
             os.makedirs(conf_dir, exist_ok=True)
             with open(conf_path, "w") as f:
                 f.write(conf_content)
@@ -230,16 +276,13 @@ class DisplaySelectorApp(QWidget):
             QMessageBox.critical(self, "Error", f"Failed to install scripts:\n{str(e)}")
 
     def open_file(self, target_file):
-        """Helper to open specific files in the editor."""
         if os.path.exists(target_file):
-            # Isolate the environment from the AppImage before launching external apps
             env = os.environ.copy()
             env.pop("LD_LIBRARY_PATH", None)
             env.pop("APPDIR", None)
             env.pop("APPIMAGE", None)
             
             try:
-                # Use xdg-open for universal support, passing the stripped environment
                 subprocess.Popen(["xdg-open", target_file], env=env)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to open {target_file}:\n{str(e)}")
@@ -263,12 +306,9 @@ class DisplaySelectorApp(QWidget):
                 try:
                     os.remove(file_path)
                     removed_any = True
-                    
-                    # Check if directory is now empty, and if so, remove it
                     dir_path = os.path.dirname(file_path)
                     if os.path.exists(dir_path) and not os.listdir(dir_path):
                         os.rmdir(dir_path)
-                        
                 except Exception as e:
                     QMessageBox.critical(self, "Error", f"Failed to remove {file_path}:\n{str(e)}")
                     return
