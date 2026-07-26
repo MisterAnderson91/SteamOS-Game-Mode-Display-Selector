@@ -1,5 +1,7 @@
 # SteamOS Game Mode Display Selector
 
+[![Build AppImage](https://github.com/MisterAnderson91/SteamOS-Game-Mode-Display-Selector/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/MisterAnderson91/SteamOS-Game-Mode-Display-Selector/actions)
+
 A graphical utility for SteamOS that allows you to force Game Mode to use a specific display output (e.g., DP-1, HDMI-A-1) instead of the default internal screen. 
 
 ## How It Works
