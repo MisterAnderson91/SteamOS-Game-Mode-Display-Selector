@@ -3,7 +3,7 @@ import stat
 import re
 import subprocess
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, 
+from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QComboBox, QPushButton, QMessageBox)
 
 # Using a raw string (r""") fixes the SyntaxWarning for the '\*' sequence
@@ -131,13 +131,18 @@ class DisplaySelectorApp(QWidget):
         self.exit_button.clicked.connect(QApplication.quit)
         layout.addWidget(self.exit_button)
         
-        # About Button (Tacked at the bottom vertically)
+        # About Layout (Bottom Right)
+        about_layout = QHBoxLayout()
+        about_layout.addStretch() # Pushes the button to the right
+        
         self.about_button = QPushButton("About")
         self.about_button.setFlat(True) 
         # Apply CSS to make the text lower contrast (grey)
         self.about_button.setStyleSheet("color: #888888;") 
         self.about_button.clicked.connect(self.show_about)
-        layout.addWidget(self.about_button)
+        
+        about_layout.addWidget(self.about_button)
+        layout.addLayout(about_layout)
 
         self.setLayout(layout)
 
@@ -188,7 +193,9 @@ class DisplaySelectorApp(QWidget):
             "The new script simply loads and parses the original, and will inject your preferred display output "
             "when it reaches the appropriate line. Otherwise, it should have no other effect.\n\n"
             "These scripts can be removed and behavior restored to default by deleting them through this app "
-            "or by deleting the files manually."
+            "or by deleting the files manually.\n\n"
+            "For updates or more information, visit:\n"
+            "https://github.com/MisterAnderson91/SteamOS-Game-Mode-Display-Selector"
         )
         QMessageBox.information(self, "About SteamOS Game Mode Display Selector", about_text)
 
