@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Launch Gaming Mode
+Exec=sh -c 'steamosctl switch-to-game-mode'
+Icon=gaming-return
+Terminal=false
+Type=Application
+StartupNotify=false
