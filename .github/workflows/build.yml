@@ -1,22 +1,19 @@
 name: Build AppImage
 
-# Trigger on push to main/master branches or manually via workflow_dispatch
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "**" ] # Triggers on all branches
     paths-ignore:
       - 'LICENSE'
       - 'README.md'
       - '.github/workflows/build.yml'
   workflow_dispatch:
 
-# Grants the workflow permission to create a Release
 permissions:
   contents: write
 
 jobs:
   build:
-    # Using Ubuntu 22.04 ensures compatibility with older glibc versions (like SteamOS)
     runs-on: ubuntu-22.04
 
     steps:
@@ -25,7 +22,6 @@ jobs:
 
     - name: Set CalVer Version
       run: |
-        # Generate date in YYYY.MM.DD format and save to GitHub environment
         CALVER=$(date +'%Y.%m.%d')
         echo "VERSION=$CALVER" >> $GITHUB_ENV
         echo "Building version: $CALVER"
@@ -38,7 +34,6 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        # file and fuse are required for appimagetool to function on Linux runners
         sudo apt-get install -y file fuse
 
     - name: Install Python dependencies
@@ -53,36 +48,32 @@ jobs:
 
     - name: Prepare AppDir structure
       run: |
-        # Ensure destination exists and copy the compiled binary
         mkdir -p DisplaySelector.AppDir/usr/bin
         cp -r dist/DisplaySelector/* DisplaySelector.AppDir/usr/bin/
-        
-        # Ensure AppRun is executable
         chmod +x DisplaySelector.AppDir/AppRun
-
-        # Inject the dynamic version into the .desktop file
         sed -i "s/Version=.*/Version=${{ env.VERSION }}/g" DisplaySelector.AppDir/*.desktop
 
     - name: Download and execute appimagetool
       run: |
-        # Download official appimagetool
         wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
         chmod +x appimagetool-x86_64.AppImage
-        
-        # Build the AppImage and set the output filename using the environment variable
         VERSION=${{ env.VERSION }} ./appimagetool-x86_64.AppImage --appimage-extract-and-run DisplaySelector.AppDir SteamOS-Game-Mode-Display-Selector-${{ env.VERSION }}-x86_64.AppImage
 
+    # 1. ALWAYS upload the artifact, regardless of branch. 
+    # Appends the branch name so you know exactly what you are downloading.
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: SteamOS-Display-Selector-${{ env.VERSION }}
+        name: SteamOS-Display-Selector-${{ env.VERSION }}-${{ github.ref_name }}
         path: "SteamOS-Game-Mode-Display-Selector-${{ env.VERSION }}-x86_64.AppImage"
 
+    # 2. ONLY run this step if the commit was pushed to the main or master branch.
     - name: Create GitHub Release
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ env.VERSION }}
         name: SteamOS Game Mode Display Selector ${{ env.VERSION }}
         files: SteamOS-Game-Mode-Display-Selector-${{ env.VERSION }}-x86_64.AppImage
-        draft: true
+        draft: false
         prerelease: false
