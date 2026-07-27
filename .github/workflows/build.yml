@@ -4,6 +4,10 @@ name: Build AppImage
 on:
   push:
     branches: [ "main", "master" ]
+    paths-ignore:
+      - 'LICENSE'
+      - 'README.md'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 # Grants the workflow permission to create a Release
