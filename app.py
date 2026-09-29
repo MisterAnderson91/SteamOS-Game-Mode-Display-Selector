@@ -125,6 +125,13 @@ class DisplaySelectorApp(QWidget):
 
         layout.addSpacing(15)
 
+        # Status Label
+        self.status_label = QLabel("Status: Checking...")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.status_label)
+
+        layout.addSpacing(15)
+
         # Apply Button
         self.apply_button = QPushButton("Install game mode display selector scripts")
         self.apply_button.clicked.connect(self.install_script)
@@ -174,6 +181,7 @@ class DisplaySelectorApp(QWidget):
         self.setLayout(layout)
 
         self.populate_displays()
+        self.update_status()
 
         # Trigger background update check safely after UI loads
         self.start_update_check("MisterAnderson91", "SteamOS-Game-Mode-Display-Selector")
@@ -230,6 +238,37 @@ class DisplaySelectorApp(QWidget):
         for i in range(self.combo_box.count()):
             self.combo_box.setItemData(i, Qt.AlignmentFlag.AlignCenter, Qt.ItemDataRole.TextAlignmentRole)
 
+    def update_status(self):
+        script_path = self.get_script_path()
+        conf_path = self.get_conf_path()
+        
+        is_installed = os.path.exists(script_path)
+        is_enabled = os.path.exists(conf_path)
+        
+        display_set = "None"
+        if is_installed:
+            try:
+                with open(script_path, "r") as f:
+                    content = f.read()
+                    match = re.search(r'GAME_MODE_DISPLAY="(.*?)"', content)
+                    if match:
+                        display_set = match.group(1)
+            except Exception:
+                pass
+                
+        installed_str = "Yes" if is_installed else "No"
+        enabled_str = "Yes" if is_enabled else "No"
+        
+        status_text = f"Installed: {installed_str}   |   Enabled: {enabled_str}\nConfigured Display: {display_set}"
+        self.status_label.setText(status_text)
+        
+        if is_installed and is_enabled:
+            self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+        elif is_installed or is_enabled:
+            self.status_label.setStyleSheet("color: #FFC107; font-weight: bold;")
+        else:
+            self.status_label.setStyleSheet("color: #F44336; font-weight: bold;")
+
     def show_about(self):
         about_text = (
             "About this app:\n\n"
@@ -270,6 +309,7 @@ class DisplaySelectorApp(QWidget):
             with open(conf_path, "w") as f:
                 f.write(conf_content)
 
+            self.update_status()
             QMessageBox.information(self, "Success", f"Scripts installed successfully!\nDisplay set to: {selected_display}")
             
         except Exception as e:
@@ -313,6 +353,7 @@ class DisplaySelectorApp(QWidget):
                     QMessageBox.critical(self, "Error", f"Failed to remove {file_path}:\n{str(e)}")
                     return
                     
+        self.update_status()
         if removed_any:
             QMessageBox.information(self, "Success", "Files successfully removed.\nSteamOS will now use the default display behavior.")
         else:
