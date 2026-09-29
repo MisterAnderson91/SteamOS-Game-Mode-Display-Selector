@@ -3,6 +3,7 @@ import stat
 import re
 import json
 import urllib.request
+import ssl
 import subprocess
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
@@ -57,7 +58,14 @@ class UpdateCheckerThread(QThread):
                 url, 
                 headers={"User-Agent": "SteamOS-Display-Selector-Updater"}
             )
-            with urllib.request.urlopen(req, timeout=4) as response:
+            
+            # Create an unverified SSL context to avoid CA bundle path issues 
+            # when running an Ubuntu-compiled PyInstaller AppImage on SteamOS (Arch)
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            
+            with urllib.request.urlopen(req, timeout=4, context=ctx) as response:
                 data = json.loads(response.read().decode())
                 latest_tag = data.get("tag_name", "").strip()
                 html_url = data.get("html_url", "").strip()
